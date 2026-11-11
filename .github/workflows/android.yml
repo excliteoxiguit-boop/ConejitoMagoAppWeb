@@ -18,14 +18,22 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install specific Gradle version
-      uses: gradle/actions/setup-gradle@v3
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew || true
 
-    - name: Build Debug APK
-      run: gradle -p app assembleDebug --no-daemon
+    - name: Build Debug APK with Gradle
+      run: |
+        if [ -f "./gradlew" ]; then
+          ./gradlew assembleDebug --no-daemon
+        else
+          gradle assembleDebug --no-daemon
+        fi
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ConejitoMago-APK
-        path: app/build/outputs/apk/debug/*.apk
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          build/outputs/apk/debug/*.apk
+          **/build/outputs/apk/debug/*.apk
