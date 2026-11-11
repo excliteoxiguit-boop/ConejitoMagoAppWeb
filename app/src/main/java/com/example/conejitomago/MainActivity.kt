@@ -20,24 +20,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetectorOptions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var speechRecognizer: SpeechRecognizer
     private var currentVideoState by mutableStateOf("conejito_idle")
-    private var appStatusText by mutableStateOf("Conejito Mago listo. Di 'Magic' o muestra tu rostro...")
+    private var appStatusText by mutableStateOf("Conejito Mago con IA listo. Di 'Magic'...")
 
-    private val tarotCards = listOf(
-        "El Mago: ¡Tus proyectos de código y sistemas avanzarán con éxito hoy!",
-        "La Sacerdotisa: Un misterio oculto en tus datos pronto será revelado.",
-        "La Rueda de la Fortuna: ¡Prepárate para un giro favorable en tu suerte!",
-        "La Estrella: Tus metas técnicas están perfectamente alineadas.",
-        "El Loco: Es momento de arriesgarte con una nueva arquitectura de software."
-    )
+    // ⚠️ Reemplaza esto con tu clave de API de Gemini oficial cuando la tengas
+    private val GEMINI_API_KEY = "AQ.Ab8RN6LZqSWn4Ss9YCDvLXZqClePM-ciSq5msAxnBLVZbmBjvA"
 
     private val requestPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
@@ -51,7 +50,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Solicitar permisos de Micrófono y Cámara para la IA y el Reconocimiento Facial
         requestPermissionsLauncher.launch(
             arrayOf(
                 Manifest.permission.RECORD_AUDIO,
@@ -67,7 +65,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
 
-                        // Reproductor de video en bucle congruente con la acción actual
+                        // Reproductor de video en bucle congruente con el estado de la IA
                         AndroidView(
                             factory = { context ->
                                 VideoView(context).apply {
@@ -80,7 +78,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Panel superior interactivo con el estado del asistente y la IA
+                        // Panel superior interactivo con la respuesta de la IA
                         Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
@@ -88,7 +86,7 @@ class MainActivity : ComponentActivity() {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "🐰 Conejito Mago (IA + Reconocimiento Facial + Tarot)",
+                                text = "🐰 Conejito Mago (Conectado a IA)",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -100,7 +98,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Botones de control manual en pantalla
+                        // Botones de control táctil en pantalla
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -109,10 +107,9 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(onClick = { 
-                                currentVideoState = "conejito_hablando"
-                                appStatusText = "🔮 Tarot: ${tarotCards.random()}"
+                                consultarIA("Magic, dame una lectura de tarot mágica")
                             }) {
-                                Text("🃏 Leer el Tarot")
+                                Text("🃏 Tarot con IA")
                             }
                             Button(onClick = { startListening() }) {
                                 Text("🎤 Escuchar a Magic")
@@ -144,21 +141,12 @@ class MainActivity : ComponentActivity() {
                         val spokenText = matches[0].lowercase(Locale.getDefault())
                         appStatusText = "Escuché: \"$spokenText\""
 
-                        // Lógica de asistente tipo Alexa con palabra clave "magic"
+                        // Si menciona la palabra clave "magic", mandamos la orden directamente a la IA
                         if (spokenText.contains("magic")) {
-                            if (spokenText.contains("tarot") || spokenText.contains("carta") || spokenText.contains("futuro")) {
-                                currentVideoState = "conejito_hablando" // Congruente: hablando al dar predicción
-                                appStatusText = "🔮 ${tarotCards.random()}"
-                            } else if (spokenText.contains("feliz") || spokenText.contains("hola")) {
-                                currentVideoState = "conejito_feliz" // Congruente: feliz
-                            } else if (spokenText.contains("triste")) {
-                                currentVideoState = "conejito_triste" // Congruente: triste
-                            } else {
-                                currentVideoState = "conejito_hablando" // Congruente: respondiendo al usuario
-                                appStatusText = "¡Hola! Estoy aquí. Pídeme el tarot o dime algo."
-                            }
+                            currentVideoState = "conejito_hablando" // Animación congruente respondiendo
+                            consultarIA(spokenText)
                         } else {
-                            currentVideoState = "conejito_idle" // En reposo si no mencionan a Magic
+                            currentVideoState = "conejito_idle"
                         }
                     }
                     startListening()
@@ -167,6 +155,57 @@ class MainActivity : ComponentActivity() {
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
             startListening()
+        }
+    }
+
+    private fun consultarIA(prompt: String) {
+        appStatusText = "Pensando con IA..."
+        currentVideoState = "conejito_hablando"
+
+        GlobalScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY")
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+
+                val jsonBody = JSONObject().apply {
+                    put("contents", org.json.JSONArray().put(
+                        JSONObject().put("parts", org.json.JSONArray().put(
+                            JSONObject().put("text", "Eres un conejito mago asistente virtual inteligente y místico. Responde de forma breve y mágica en español a esta solicitud: $prompt")
+                        ))
+                    ))
+                }
+
+                connection.outputStream.write(jsonBody.toString().toByteArray())
+                
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val jsonResponse = JSONObject(response)
+                    val candidateText = jsonResponse.getJSONArray("candidates")
+                        .getJSONObject(0)
+                        .getJSONObject("content")
+                        .getJSONArray("parts")
+                        .getJSONObject(0)
+                        .getString("text")
+
+                    withContext(Dispatchers.Main) {
+                        appStatusText = "Magic: $candidateText"
+                        currentVideoState = "conejito_feliz"
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        appStatusText = "Error al conectar con la IA."
+                        currentVideoState = "conejito_triste"
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appStatusText = "Excepción de red en IA."
+                    currentVideoState = "conejito_triste"
+                }
+            }
         }
     }
 
@@ -190,7 +229,7 @@ class MainActivity : ComponentActivity() {
             val videoUri = Uri.parse("android.resource://" + context.packageName + "/" + videoResId)
             videoView.setVideoURI(videoUri)
             videoView.setOnPreparedListener { mediaPlayer ->
-                mediaPlayer.isLooping = true // Mantiene el bucle continuo
+                mediaPlayer.isLooping = true
                 mediaPlayer.start()
             }
             videoView.start()
