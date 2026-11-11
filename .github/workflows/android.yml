@@ -18,10 +18,14 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Set up Gradle 8.5 (Compatible)
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.5'
+
     - name: Build Debug APK
       run: |
-        # Compilar pasando la propiedad directamente a Gradle sin usar variables de entorno con puntos
-        gradle -p app assembleDebug --no-daemon -Pkotlin.daemon.enabled=false || gradle assembleDebug --no-daemon -Pkotlin.daemon.enabled=false
+        gradle -p app assembleDebug --no-daemon
 
     - name: Find and Copy APK to root for Artifacts
       run: |
