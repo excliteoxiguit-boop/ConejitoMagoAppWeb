@@ -18,12 +18,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Build Debug APK with Gradle
+    - name: Install Gradle & Build Debug APK
       run: |
-        # Instalar gradle si no viene por defecto en el runner
         sudo apt-get update && sudo apt-get install -y gradle
-        # Compilar el proyecto de Android
-        gradle assembleDebug
+        # Compilar ejecutando gradle desde la ruta correcta o buscando el gradlew interno
+        if [ -f "./app/gradlew" ]; then
+          cd app && ./gradlew assembleDebug
+        elif [ -f "./gradlew" ]; then
+          ./gradlew assembleDebug
+        else
+          gradle -b app/build.gradle assembleDebug || gradle assembleDebug
+        fi
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
@@ -32,3 +37,4 @@ jobs:
         path: |
           app/build/outputs/apk/debug/*.apk
           build/outputs/apk/debug/*.apk
+          **/build/outputs/apk/debug/*.apk
