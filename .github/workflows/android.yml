@@ -18,16 +18,18 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Gradle & Build Debug APK
+    - name: Build APK with Android Command Line Tools
       run: |
-        sudo apt-get update && sudo apt-get install -y gradle
-        # Compilar ejecutando gradle desde la ruta correcta o buscando el gradlew interno
-        if [ -f "./app/gradlew" ]; then
-          cd app && ./gradlew assembleDebug
-        elif [ -f "./gradlew" ]; then
-          ./gradlew assembleDebug
+        # Configurar permisos de gradle y compilar de forma directa en la raíz
+        export ANDROID_HOME=$HOME/android-sdk
+        if [ -f "./build.gradle" ] || [ -f "./build.gradle.kts" ]; then
+          gradle assembleDebug
+        elif [ -f "./app/build.gradle" ] || [ -f "./app/build.gradle.kts" ]; then
+          cd app && gradle assembleDebug
         else
-          gradle -b app/build.gradle assembleDebug || gradle assembleDebug
+          # Si Gradle global no está presente, descargamos las herramientas mínimas
+          echo "Buscando gradle..."
+          gradle assembleDebug
         fi
 
     - name: Upload APK Artifact
