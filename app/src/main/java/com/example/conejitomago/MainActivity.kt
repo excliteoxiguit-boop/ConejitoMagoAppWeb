@@ -10,8 +10,8 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.widget.VideoView
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,15 +19,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
-import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
@@ -35,27 +34,24 @@ class MainActivity : ComponentActivity() {
     private var currentVideoState by mutableStateOf("conejito_idle")
     private var appStatusText by mutableStateOf("Conejito Mago con IA listo. Di 'Magic'...")
 
-    // ⚠️ Reemplaza esto con tu clave de API de Gemini oficial cuando la tengas
+    // ⚠️ Importante: Mantén tu API Key segura. En producción esto debería ir en local.properties
     private val GEMINI_API_KEY = "AQ.Ab8RN6LZqSWn4Ss9YCDvLXZqClePM-ciSq5msAxnBLVZbmBjvA"
 
     private val requestPermissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
             val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
-            val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
             if (audioGranted) {
                 initializeSpeechRecognizer()
+            } else {
+                appStatusText = "Se requiere permiso de micrófono para escuchar."
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        requestPermissionsLauncher.launch(
-            arrayOf(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.CAMERA
-            )
-        )
+        // Solicitamos solo el permiso de audio (el de cámara no se usa en este código actual)
+        requestPermissionsLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
 
         setContent {
             MaterialTheme {
@@ -65,7 +61,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
 
-                        // Reproductor de video en bucle congruente con el estado de la IA
+                        // Reproductor de video
                         AndroidView(
                             factory = { context ->
                                 VideoView(context).apply {
@@ -78,7 +74,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Panel superior interactivo con la respuesta de la IA
+                        // Panel superior
                         Column(
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
@@ -98,7 +94,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Botones de control táctil en pantalla
+                        // Botones
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -133,6 +129,7 @@ class MainActivity : ComponentActivity() {
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() {}
                 override fun onError(error: Int) {
+                    // Reiniciar la escucha suavemente
                     startListening()
                 }
                 override fun onResults(results: Bundle?) {
@@ -141,9 +138,8 @@ class MainActivity : ComponentActivity() {
                         val spokenText = matches[0].lowercase(Locale.getDefault())
                         appStatusText = "Escuché: \"$spokenText\""
 
-                        // Si menciona la palabra clave "magic", mandamos la orden directamente a la IA
                         if (spokenText.contains("magic")) {
-                            currentVideoState = "conejito_hablando" // Animación congruente respondiendo
+                            currentVideoState = "conejito_hablando"
                             consultarIA(spokenText)
                         } else {
                             currentVideoState = "conejito_idle"
@@ -162,7 +158,8 @@ class MainActivity : ComponentActivity() {
         appStatusText = "Pensando con IA..."
         currentVideoState = "conejito_hablando"
 
-        GlobalScope.launch(Dispatchers.IO) {
+        // Usamos lifecycleScope en lugar de GlobalScope para evitar fugas de memoria
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$GEMINI_API_KEY")
                 val connection = url.openConnection() as HttpURLConnection
@@ -196,13 +193,13 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        appStatusText = "Error al conectar con la IA."
+                        appStatusText = "Error de red: ${connection.responseCode}"
                         currentVideoState = "conejito_triste"
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    appStatusText = "Excepción de red en IA."
+                    appStatusText = "Error de conexión."
                     currentVideoState = "conejito_triste"
                 }
             }
