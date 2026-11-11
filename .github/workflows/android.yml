@@ -20,8 +20,8 @@ jobs:
 
     - name: Build Debug APK
       run: |
-        export ORG_GRADLE_PROJECT_kotlin.daemon.enabled=false
-        gradle -p app assembleDebug --no-daemon || gradle assembleDebug --no-daemon
+        # Compilar pasando la propiedad directamente a Gradle sin usar variables de entorno con puntos
+        gradle -p app assembleDebug --no-daemon -Pkotlin.daemon.enabled=false || gradle assembleDebug --no-daemon -Pkotlin.daemon.enabled=false
 
     - name: Find and Copy APK to root for Artifacts
       run: |
