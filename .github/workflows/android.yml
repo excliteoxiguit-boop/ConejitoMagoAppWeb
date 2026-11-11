@@ -2,14 +2,14 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
     - name: Set up JDK 17
@@ -18,13 +18,13 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Build debug APK with Gradle
-      run: |
-        # Creamos una estructura rapida si falta el gradlew para permitir la prueba web
-        gradle wrapper || true
-        ./gradlew assembleDebug || echo "Estructura base lista"
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-    - name: Upload APK artifact
+    - name: Build debug APK with Gradle
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: ConejitoMago-APK
