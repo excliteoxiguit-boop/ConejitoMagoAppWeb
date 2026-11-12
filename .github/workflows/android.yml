@@ -25,7 +25,7 @@ jobs:
 
     - name: Build Debug APK
       run: |
-        gradle -p app assembleDebug --no-daemon
+        gradle -p app assembleDebug --stacktrace
 
     - name: Find and Copy APK to root for Artifacts
       run: |
